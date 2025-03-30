@@ -181,7 +181,7 @@ export const siteConfig = {
       endpoints: [
         {
           method: "GET",
-          path: "/yotube/mp3",
+          path: "/ytdl/mp3",
           description: "Download audio from YouTube url",
           mediaType: "application/json",
           parameters: [
@@ -191,7 +191,7 @@ export const siteConfig = {
         },
         {
           method: "GET",
-          path: "/youtube/mp4",
+          path: "/ytdl/mp4",
           description: "Download video from YouTube url",
           mediaType: "application/json",
           parameters: [
