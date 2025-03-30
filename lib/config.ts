@@ -47,7 +47,7 @@ export const siteConfig = {
 
   // API information
   api: {
-    baseUrl: "https://api-next-rosy.vercell.app", // Updated base URL
+    baseUrl: "https://api-next-rosy.vercel.app", // Updated base URL
     creator: "I'm Fz ~",
     versions: ["v1"], // Available API versions
     defaultVersion: "v1", // Default API version
