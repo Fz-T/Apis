@@ -176,12 +176,12 @@ export const siteConfig = {
   // API Categories and Endpoints
   apiCategories: [
     {
-      name: "YouTube Download",
+      name: "YouTube",
       color: "blue",
       endpoints: [
         {
           method: "GET",
-          path: "/ytdl/mp3",
+          path: "/yotube/mp3",
           description: "Download audio from YouTube url",
           mediaType: "application/json",
           parameters: [
@@ -191,7 +191,7 @@ export const siteConfig = {
         },
         {
           method: "GET",
-          path: "/ytdl/mp4",
+          path: "/youtube/mp4",
           description: "Download video from YouTube url",
           mediaType: "application/json",
           parameters: [
