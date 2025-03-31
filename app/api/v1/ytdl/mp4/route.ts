@@ -1,20 +1,18 @@
-import { NextResponse } from "next/server"
+ import { NextResponse } from "next/server"
 import { siteConfig } from "@/lib/config"
 import { memoryCache } from "@/lib/cache"
 import axios from "axios"
 import crypto from "crypto"
 
-// Cache TTL in seconds for successful responses
 const CACHE_TTL = 1800 // 30 minutes
 
-
-async function ytdl(link, format = '720') {
+async function ytdl(link: string, format: string = '720') {
   const apiBase = "https://media.savetube.me/api";
   const apiCDN = "/random-cdn";
   const apiInfo = "/v2/info";
   const apiDownload = "/download";
 
-  const decryptData = async (enc) => {
+  const decryptData = async (enc: string) => {
     try {
       const key = Buffer.from('C5D58EF67A7584E4A29F6C35BBC4EB12', 'hex');
       const data = Buffer.from(enc, 'base64');
@@ -31,7 +29,7 @@ async function ytdl(link, format = '720') {
     }
   };
 
-  const request = async (endpoint, data = {}, method = 'post') => {
+  const request = async (endpoint: string, data: any = {}, method: 'post' | 'get' = 'post') => {
     try {
       const { data: response } = await axios({
         method,
@@ -47,13 +45,13 @@ async function ytdl(link, format = '720') {
         }
       });
       return { status: true, data: response };
-    } catch (error) {
+    } catch (error: any) {
       return { status: false, error: error.message };
     }
   };
 
   const youtubeID = link.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([a-zA-Z0-9_-]{11})/);
-  if (!youtubeID) return { status: false, error: "Gagal mengekstrak ID video dari URL." };
+  if (!youtubeID) return { status: false, error: "No se pudo extraer el ID del video de la URL." };
 
   const qualityOptions = ['1080', '720', '480', '360', '240']; 
   try {
@@ -65,14 +63,14 @@ async function ytdl(link, format = '720') {
     if (!infoRes.status) return infoRes;
     
     const decrypted = await decryptData(infoRes.data.data);
-    if (!decrypted) return { status: false, error: "Gagal mendekripsi data video." };
+    if (!decrypted) return { status: false, error: "No se pudo descifrar la información del video." };
 
-    let downloadUrl = null;
+    let downloadUrl: string | null = null;
     for (const quality of qualityOptions) {
       const downloadRes = await request(`https://${cdn}${apiDownload}`, {
         id: youtubeID[1],
         downloadType: format === 'mp3' ? 'audio' : 'video',
-        quality: quality,
+        quality,
         key: decrypted.key
       });
       if (downloadRes.status && downloadRes.data.data.downloadUrl) {
@@ -82,25 +80,17 @@ async function ytdl(link, format = '720') {
     }
 
     if (!downloadUrl) {
-      return { status: false, error: "No se pudo encontrar un enlace de descarga disponible para el video." };
+      return { status: false, error: "No se encontró un enlace de descarga disponible para el video." };
     }
     const fileResponse = await axios.head(downloadUrl); 
     const size = fileResponse.headers['content-length']; 
 
-    return {
-      status: true,
-      res: {
-        title: decrypted.title || "Unknown",
-        type: format === 'mp3' ? 'audio' : 'video',
-        format: format,
-        download: downloadUrl,
-        size: size ? `${(size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'
-      }
-    };
-  } catch (error) {
+    return { downloadUrl, size };
+    
+  } catch (error: any) {
     return { status: false, error: error.message };
   }
-    }
+}
 
 export async function GET(request: Request) {
   if (siteConfig.maintenance.enabled) {
@@ -122,13 +112,13 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const url = searchParams.get("url")
-  const format = searchParams.get("quality") || "720"
+  const format = "720"
 
   if (!url) {
     return NextResponse.json({
       status: false,
       creator: siteConfig.api.creator,
-      error: "URL is required",
+      error: "Se requiere la URL del video",
     }, {
       status: 400,
       headers: { "Content-Type": "application/json; charset=utf-8" },
@@ -139,21 +129,13 @@ export async function GET(request: Request) {
     const cacheKey = `youtube-${url}-${format}`
     const cachedResponse = memoryCache.get(cacheKey)
     if (cachedResponse) {
-      return new NextResponse(
-        JSON.stringify({
-          status: true,
-          creator: siteConfig.api.creator,
-          result: cachedResponse,
-          cached: true,
-          version: "v1",
-        }, null, 2),
-        {
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Cache-Control": "public, max-age=1800, s-maxage=3600",
-          },
-        }
-      )
+      return NextResponse.json({
+        status: true,
+        creator: siteConfig.api.creator,
+        result: cachedResponse,
+        cached: true,
+        version: "v1",
+      })
     }
 
     const video = await ytdl(url, format)
@@ -165,46 +147,26 @@ export async function GET(request: Request) {
           creator: siteConfig.api.creator,
           error: video.error,
         }, null, 2),
-        {
-          status: 400,
-          headers: {
-            "Content-Type": "application/json; charset=utf-8",
-            "Cache-Control": "no-store",
-          },
-        }
+        { status: 400 }
       )
     }
 
-    memoryCache.set(cacheKey, video, CACHE_TTL)
+    const { downloadUrl, size } = video
+    const response = await axios.get(downloadUrl, { responseType: 'stream' })
 
-    return new NextResponse(
-      JSON.stringify({
-        status: true,
-        creator: siteConfig.api.creator,
-        result: video.res,
-        version: "v1",
-      }, null, 2),
-      {
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "public, max-age=1800, s-maxage=3600",
-        },
+    return new NextResponse(response.data, {
+      status: 200,
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Length": size,
+        "Content-Disposition": `attachment; filename="video.mp4"`,
+        "Cache-Control": "public, max-age=1800, s-maxage=3600",
       }
-    )
-  } catch (error) {
+    })
+  } catch (error: any) {
     return new NextResponse(
-      JSON.stringify({
-        status: false,
-        creator: siteConfig.api.creator,
-        error: error instanceof Error ? error.message : "An error occurred",
-      }, null, 2),
-      {
-        status: 500,
-        headers: {
-          "Content-Type": "application/json; charset=utf-8",
-          "Cache-Control": "no-store",
-        },
-      }
+      JSON.stringify({ status: false, error: error.message }, null, 2),
+      { status: 500 }
     )
   }
-                              }
+}
