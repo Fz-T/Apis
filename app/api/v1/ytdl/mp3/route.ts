@@ -7,7 +7,7 @@ import { promisify } from 'util';
 
 const streamPipeline = promisify(pipeline);
 
-async function ytdl(url: string) {
+async function ytdl(url) {
   const headers = {
     "accept": "*/*",
     "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -92,7 +92,7 @@ export async function GET(request: Request) {
             status: 200,
             headers: {
                 "Content-Type": "audio/mpeg",
-                "Content-Disposition": `attachment; filename="${audioData.title}.mp3"`
+                "Content-Disposition": `attachment; filename="${audioData.title || 'audio'}.mp3"`
             }
         });
 
