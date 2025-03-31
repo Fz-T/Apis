@@ -58,12 +58,12 @@ export async function GET(request: Request) {
     }
 
     const response = await axios.get(result.url, { responseType: 'stream' });
-
+let title = "yt-video"
     return new NextResponse(response.data, {
       status: 200,
       headers: {
         "Content-Type": "video/mp4",
-        "Content-Disposition": `attachment; filename="${result.title || 'video'}.mp4"`
+        "Content-Disposition": `attachment; filename="${title || 'video'}.mp4"`
       }
     });
   } catch (error: any) {
