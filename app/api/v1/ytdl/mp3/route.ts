@@ -113,10 +113,11 @@ export async function GET(request: Request) {
   }
 
   try {
-    const yt = new YTDL()
-  const info = await yt.Info(videoUrl)
-  const reso = "mp3";
-  const audio = await yt.Dl(reso)
+    const yt = new YTDL();
+    const info = await yt.Info(videoUrl);
+    const reso = "mp3";
+    const audio = await yt.Dl(reso);
+
     if (!audio.download_url) {
       return NextResponse.json({
         status: false,
@@ -126,11 +127,14 @@ export async function GET(request: Request) {
 
     const response = await axios.get(audio.download_url, { responseType: 'stream' });
 
-    return new NextResponse(response.data, {
+    const { readable, writable } = new TransformStream();
+    streamPipeline(response.data, writable);
+
+    return new NextResponse(readable, {
       status: 200,
       headers: {
         "Content-Type": "audio/mpeg",
-        "Content-Disposition": "attatchment; filename=audio.mp3"
+        "Content-Disposition": "attachment; filename=audio.mp3"
       }
     });
   } catch (error: any) {
