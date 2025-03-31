@@ -201,6 +201,20 @@ export const siteConfig = {
         },
       ],
     },
+    {
+      name: "Downloads",
+      color: "purple",
+      endpoints: [
+        {
+          method: "GET",
+          path: "/dl/aio",
+          description: "Support : Facebook, Twitter, Instagram, TikTok, Souncloud & Pinterest downloads",
+          mediaType: "application/json",
+          parameters: [{ name: "url", type: "string", required: true, description: "introduce una URL válida" },],
+          versions: ["v1"],
+        },
+      ],
+    },
   ]
 }
 
