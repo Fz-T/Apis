@@ -7,6 +7,7 @@ import crypto from "crypto"
 // Cache TTL in seconds for successful responses
 const CACHE_TTL = 1800 // 30 minutes
 
+
 async function ytdl(link, format = '720') {
   const apiBase = "https://media.savetube.me/api";
   const apiCDN = "/random-cdn";
@@ -86,12 +87,20 @@ async function ytdl(link, format = '720') {
     const fileResponse = await axios.head(downloadUrl); 
     const size = fileResponse.headers['content-length']; 
 
-    return { dl: downloadUrl, size }
-    
+    return {
+      status: true,
+      res: {
+        title: decrypted.title || "Unknown",
+        type: format === 'mp3' ? 'audio' : 'video',
+        format: format,
+        download: downloadUrl,
+        size: size ? `${(size / 1024 / 1024).toFixed(2)} MB` : 'Unknown'
+      }
+    };
   } catch (error) {
     return { status: false, error: error.message };
   }
-}
+    }
 
 export async function GET(request: Request) {
   if (siteConfig.maintenance.enabled) {
@@ -113,7 +122,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url)
   const url = searchParams.get("url")
-  const format = searchParams.get("q") || "720"
+  const format = searchParams.get("quality") || "720"
 
   if (!url) {
     return NextResponse.json({
@@ -172,7 +181,7 @@ export async function GET(request: Request) {
       JSON.stringify({
         status: true,
         creator: siteConfig.api.creator,
-        result: video,
+        result: video.res,
         version: "v1",
       }, null, 2),
       {
