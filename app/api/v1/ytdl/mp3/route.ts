@@ -1,73 +1,106 @@
  import { NextResponse } from "next/server"
 import fs from 'fs';
-import ffmpeg from 'fluent-ffmpeg';
-import axios from 'axios';
+import axios from "axios";
+import * as cheerio from "cheerio";
 import { pipeline } from 'stream';
 import { promisify } from 'util';
 
 const streamPipeline = promisify(pipeline);
 
-async function up(url, path) {
-    const tempPath = '/tmp/temp_audio.mp3';
 
-    const response = await axios({
-        url,
-        method: 'GET',
-        responseType: 'stream'
-    });
+const BASE = "https://ytmp3.so/en/youtube-4k-downloader"
+const EMBED = "https://www.youtube.com/oembed?type=json&url=URLNYA"
+const DOWNLOAD = "https://p.oceansaver.in/ajax/download.php"
+const REG = /\&api=(\w+)\&/gi;
+const FORMAT = [
+  "mp3",
+  "m4a",
+  "webm",
+  "aac",
+  "flac",
+  "opus",
+  "ogg",
+  "wav",
 
-    await streamPipeline(response.data, fs.createWriteStream(tempPath));
+  "360",
+  "480",
+  "720",
+  "1080",
+  "1440",
+  "4k"
+]
 
-    return new Promise((resolve, reject) => {
-        ffmpeg(tempPath)
-            .audioBitrate('320k')
-            .save(path)
-            .on('end', () => {
-                fs.unlinkSync(tempPath);
-                resolve(path);
-            })
-            .on('error', (err) => {
-                fs.unlinkSync(tempPath);
-                reject('Error al procesar el audio: ' + err.message);
-            });
-    });
-}
-
-async function ytdl(url) {
-  const headers = {
-    "accept": "*/*",
-    "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
-    "sec-ch-ua": "\"Not A(Brand\";v=\"8\", \"Chromium\";v=\"132\"",
-    "sec-ch-ua-mobile": "?1",
-    "sec-ch-ua-platform": "\"Android\"",
-    "sec-fetch-dest": "empty",
-    "sec-fetch-mode": "cors",
-    "sec-fetch-site": "cross-site",
-    "Referer": "https://id.ytmp3.mobi/",
-    "Referrer-Policy": "strict-origin-when-cross-origin"
-  };
-  const initial = await fetch(`https://d.ymcdn.org/api/v1/init?p=y&23=1llum1n471&_=${Math.random()}`, { headers });
-  const init = await initial.json();
-  const id = url.match(/(?:youtu\.be\/|youtube\.com\/(?:.*v=|.*\/|.*embed\/))([^&?/]+)/)?.[1];
-  const convertURL = init.convertURL + `&v=${id}&f=mp4&_=${Math.random()}`;
-
-  const converts = await fetch(convertURL, { headers });
-  const convert = await converts.json();
-
-  let info = {};
-  for (let i = 0; i < 3; i++) {
-    const progressResponse = await fetch(convert.progressURL, { headers });
-    info = await progressResponse.json();
-    if (info.progress === 3) break;
+class YTDL {
+  constructor() {
+    this.link = "";
   }
 
-  const result = {
-    url: convert.downloadURL,
-    title: info.title
-  };
-  return result;
-}
+  async _getApi() {
+    let api = "";
 
+    const res = await axios({
+      url: BASE,
+      method: "GET",
+    });
+
+    const mth = res.data.match(REG);
+    if (mth) {
+      api = mth[1]
+    }
+
+    return api
+  }
+
+  async Info(link) {
+    this.link = link;
+    const res = await axios({
+      url: EMBED.replace("URLNYA", link),
+      method: "GET",
+      responseType: "json"
+    });
+
+    return res.data;
+  }
+
+  async Dl(reso) {
+    let response = {};
+
+    if (!FORMAT.includes(reso)) {
+      return console.log("[ ERROR ] Format tidak ada!")
+    }
+    const api = await this._getApi();
+    const res = await axios({
+      url: DOWNLOAD,
+      method: "GET",
+      responseType: "json",
+      params: {
+        copyright: "0",
+        format: reso,
+        url: this.link,
+        api
+      }
+    });
+    
+    while (true) {
+      const wit = await axios({
+        url: res.data.progress_url,
+        method: "GET",
+        responseType: "json",
+      });
+      console.log("[ DOWNLOAD ] " + wit.data.text)
+
+      if (wit.data.progress > 999 && wit.data.success == 1) {
+        response = wit.data
+        break;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 5_000))
+    }
+
+    return response;
+  }
+}
+  
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const videoUrl = searchParams.get("url");
@@ -80,18 +113,18 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await ytdl(videoUrl);
-
-    if (!result.url) {
+    const yt = new YTDL()
+  const info = await yt.Info(videoUrl)
+  const reso = "mp3";
+  const audio = await yt.Dl(reso)
+    if (!audio.download_url) {
       return NextResponse.json({
         status: false,
         error: "No se pudo obtener la URL de descarga."
       }, { status: 400 });
     }
-const outputPath = '/tmp/audio.mp3';
-let path = await up(result.url, outputPath);
-let datas = fs.createReadStream(path);
-    const response = await axios.get(datas, { responseType: 'stream' });
+
+    const response = await axios.get(audio.download_url, { responseType: 'stream' });
 
     return new NextResponse(response.data, {
       status: 200,
