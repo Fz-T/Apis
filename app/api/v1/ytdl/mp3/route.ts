@@ -1,7 +1,13 @@
  import { NextResponse } from "next/server"
-import axios from "axios"
+import fs from 'fs';
+import ffmpeg from 'fluent-ffmpeg';
+import axios from 'axios';
+import { pipeline } from 'stream';
+import { promisify } from 'util';
 
-async function ytdl(url) {
+const streamPipeline = promisify(pipeline);
+
+async function ytdl(url: string) {
   const headers = {
     "accept": "*/*",
     "accept-language": "id-ID,id;q=0.9,en-US;q=0.8,en;q=0.7",
@@ -36,40 +42,64 @@ async function ytdl(url) {
   return result;
 }
 
+async function up(url: string, outputPath: string): Promise<string> {
+    const tempPath = '/tmp/temp_audio.mp3';
+
+    const response = await axios({
+        url,
+        method: 'GET',
+        responseType: 'stream'
+    });
+
+    await streamPipeline(response.data, fs.createWriteStream(tempPath));
+
+    return new Promise((resolve, reject) => {
+        ffmpeg(tempPath)
+            .audioBitrate('320k')
+            .save(outputPath)
+            .on('end', () => {
+                fs.unlinkSync(tempPath);
+                resolve(outputPath);
+            })
+            .on('error', (err) => {
+                fs.unlinkSync(tempPath);
+                reject(`Error al procesar el audio: ${err.message}`);
+            });
+    });
+}
+
 export async function GET(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const videoUrl = searchParams.get("url");
+    const { searchParams } = new URL(request.url);
+    const videoUrl = searchParams.get("url");
 
-  if (!videoUrl) {
-    return NextResponse.json({
-      status: false,
-      error: "URL del video requerida."
-    }, { status: 400 });
-  }
-
-  try {
-    const result = await ytdl(videoUrl);
-
-    if (!result.url) {
-      return NextResponse.json({
-        status: false,
-        error: "No se pudo obtener la URL de descarga."
-      }, { status: 400 });
+    if (!videoUrl) {
+        return NextResponse.json({
+            status: false,
+            error: "Se requiere una URL de video."
+        }, { status: 400 });
     }
 
-    const response = await axios.get(result.url, { responseType: 'stream' });
+    try {
+        const audioData = await ytdl(videoUrl);
+        const downloadUrl = audioData.url;
+        const outputPath = '/tmp/audio.mp3';
 
-    return new NextResponse(response.data, {
-      status: 200,
-      headers: {
-        "Content-Type": "audio/mpeg",
-        "Content-Disposition": `attachment; filename="${result.title || 'audio'}.mp3"`
-      }
-    });
-  } catch (error: any) {
-    return NextResponse.json({
-      status: false,
-      error: error.message
-    }, { status: 500 });
-  }
+        await up(downloadUrl, outputPath);
+
+        const fileStream = fs.createReadStream(outputPath);
+        
+        return new NextResponse(fileStream as any, {
+            status: 200,
+            headers: {
+                "Content-Type": "audio/mpeg",
+                "Content-Disposition": "attachment; filename=audio.mp3"
+            }
+        });
+
+    } catch (error: any) {
+        return NextResponse.json({
+            status: false,
+            error: error.message
+        }, { status: 500 });
+    }
 }
