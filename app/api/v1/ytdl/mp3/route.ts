@@ -8,7 +8,7 @@ import { promisify } from 'util';
 const streamPipeline = promisify(pipeline);
 
 async function up(url, path) {
-    const tempPath = './tmp/temp_audio.mp3';
+    const tempPath = '/tmp/temp_audio.mp3';
 
     const response = await axios({
         url,
@@ -88,7 +88,7 @@ export async function GET(request: Request) {
         error: "No se pudo obtener la URL de descarga."
       }, { status: 400 });
     }
-const outputPath = './tmp/audio.mp3';
+const outputPath = '/tmp/audio.mp3';
 let path = await up(result.url, outputPath);
 let datas = fs.createReadStream(path);
     const response = await axios.get(datas, { responseType: 'stream' });
