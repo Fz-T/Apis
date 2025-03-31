@@ -181,7 +181,7 @@ export async function GET(request: Request) {
       JSON.stringify({
         status: true,
         creator: siteConfig.api.creator,
-        result: video,
+        result: video.res,
         version: "v1",
       }, null, 2),
       {
