@@ -183,9 +183,9 @@ export const siteConfig = {
           method: "GET",
           path: "/ytdl/mp3",
           description: "Download audio from YouTube url",
-          mediaType: "application/json",
+          mediaType: "audio/mp3",
           parameters: [
-            { name: "url", type: "string", required: true, description: "Download Youtube mp3" },
+            { name: "url", type: "string", required: true, description: "YouTube URL" },
           ],
           versions: ["v1"], // Available in both versions
         },
@@ -193,9 +193,9 @@ export const siteConfig = {
           method: "GET",
           path: "/ytdl/mp4",
           description: "Download video from YouTube url",
-          mediaType: "application/json",
+          mediaType: "video/mp4",
           parameters: [
-            { name: "url", type: "string", required: true, description: "Download Youtube video" },
+            { name: "url", type: "string", required: true, description: "YouTube URL" },
           ],
           versions: ["v1"], // Available in both versions
         },
