@@ -96,7 +96,7 @@ let datas = fs.createReadStream(path);
     return new NextResponse(response.data, {
       status: 200,
       headers: {
-        "Content-Type": "video/mp4",
+        "Content-Type": "audio/mpeg",
         "Content-Disposition": `attachment; filename="${result.title || 'video'}.mp4"`
       }
     });
