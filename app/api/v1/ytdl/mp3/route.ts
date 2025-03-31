@@ -92,7 +92,7 @@ export async function GET(request: Request) {
             status: 200,
             headers: {
                 "Content-Type": "audio/mpeg",
-                "Content-Disposition": "attachment; filename=audio.mp3"
+                "Content-Disposition": `attachment; filename="${audioData.title}.mp3"`
             }
         });
 
